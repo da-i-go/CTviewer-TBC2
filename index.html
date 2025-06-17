@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>STAT画像学習システム</title>
+    <link rel="stylesheet" href="css/viewer.css" />
+    <style>
+      /* 追加のローディング画面スタイル */
+      #loadingOverlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(255, 255, 255, 0.9);
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .spinner {
+        width: 60px;
+        height: 60px;
+        border: 6px solid #ccc;
+        border-top-color: #007acc;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 1rem;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .loading-text {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #444;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ローディングオーバーレイ -->
+    <div id="loadingOverlay">
+      <div class="spinner"></div>
+      <div class="loading-text">Loading...</div>
+    </div>
+
+    <main style="display: none">
+      <h1>CT画像</h1>
+
+      <div class="viewer">
+        <img id="ctImage" src="images/ct_scan01.jpg" alt="CT Slice" />
+      </div>
+
+      <div class="slider-container">
+        <button class="arrow-button" onclick="changeSlice(-1)">←</button>
+        <input type="range" id="sliceSlider" min="1" step="1" />
+        <button class="arrow-button" onclick="changeSlice(1)">→</button>
+      </div>
+
+      <div class="slice-info" id="sliceInfo">
+        現在のスライス: 1
+      </div>
+
+      <!-- ページ遷移ボタン -->
+      <div class="navigation">
+        <button onclick="location.href='https://anjokosei.jp'">
+          <span class="icon">▶</span>
+          <span class="label">次のページへ</span>
+        </button>
+      </div>
+    </main>
+
+    <script>
+      const totalSlices = 168;
+      const imageCache = [];
+      let currentSlice = 1;
+
+      const ctImage = document.getElementById("ctImage");
+      const slider = document.getElementById("sliceSlider");
+      const info = document.getElementById("sliceInfo");
+      const loadingOverlay = document.getElementById("loadingOverlay");
+      const mainContent = document.querySelector("main");
+
+      const paddingLength = totalSlices.toString().length;
+
+      function getPaddedFilename(n) {
+        const padded = String(n).padStart(paddingLength, '0');
+        return `images/ct_scan${padded}.jpg`;
+      }
+
+      function preloadImages(callback) {
+        let loadedCount = 0;
+
+        for (let i = 1; i <= totalSlices; i++) {
+          const img = new Image();
+          img.onload = () => {
+            loadedCount++;
+            if (loadedCount === totalSlices) {
+              callback(); // 全部読み込んだら実行
+            }
+          };
+          img.onerror = () => {
+            console.error(`画像の読み込みに失敗: ${img.src}`);
+            loadedCount++;
+            if (loadedCount === totalSlices) {
+              callback(); // 読み込み失敗してもカウントする
+            }
+          };
+          img.src = getPaddedFilename(i);
+          imageCache[i] = img;
+        }
+      }
+
+      function updateSlice(n) {
+        currentSlice = n;
+        ctImage.src = imageCache[n]?.src || getPaddedFilename(n);
+        info.textContent = `現在のスライス: ${n} / ${totalSlices}`;
+        slider.value = n;
+      }
+
+      function changeSlice(step) {
+        const newSlice = Math.max(1, Math.min(totalSlices, currentSlice + step));
+        updateSlice(newSlice);
+      }
+
+      slider.addEventListener("input", () => {
+        const newSlice = parseInt(slider.value);
+        updateSlice(newSlice);
+      });
+
+      window.onload = () => {
+        slider.max = totalSlices;
+        slider.value = currentSlice;
+
+        preloadImages(() => {
+          loadingOverlay.style.display = "none"; // ローディング非表示
+          mainContent.style.display = "flex"; // ビューア表示
+          updateSlice(currentSlice);
+        });
+      };
+    </script>
+  </body>
+</html>
